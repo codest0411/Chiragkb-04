@@ -162,7 +162,7 @@ const About = () => {
                   <div className="aspect-square rounded-2xl bg-gradient-to-br from-primary-400 to-navy-600 dark:from-emerald-400 dark:to-purple-600 p-1">
                     <div className="w-full h-full rounded-2xl bg-gray-200 dark:bg-dark-card overflow-hidden">
                       <img 
-                        src="https://ibb.co/Rph6sCG2" 
+                        src="https://i.ibb.co/SXQmMKDN/Whats-App-Image-2025-10-04-at-3-09-18-PM.jpg" 
                         alt="Chirag Keshav Bhandarkar" 
                         className="w-full h-full object-cover"
                         onError={(e) => {
