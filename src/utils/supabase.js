@@ -285,6 +285,76 @@ export const storageAPI = {
 }
 
 // Auth helper functions
+export const visitorAPI = {
+  async trackVisitor(visitorData) {
+    const { data, error } = await supabase
+      .from('visitor_stats')
+      .insert([visitorData])
+      .select()
+    
+    if (error) throw error
+    return data[0]
+  },
+
+  async getVisitorCount() {
+    const { data, error } = await supabase
+      .from('visitor_stats')
+      .select('visitor_id')
+    
+    if (error) {
+      console.error('Error fetching visitor count:', error)
+      return 0
+    }
+    
+    // Count unique visitors
+    const uniqueVisitors = new Set(data?.map(visit => visit.visitor_id) || [])
+    return uniqueVisitors.size
+  },
+
+  async getTodayVisitors() {
+    const today = new Date().toISOString().split('T')[0]
+    const { data, error } = await supabase
+      .from('visitor_stats')
+      .select('visitor_id')
+      .gte('visited_at', `${today}T00:00:00.000Z`)
+      .lt('visited_at', `${today}T23:59:59.999Z`)
+    
+    if (error) {
+      console.error('Error fetching today visitors:', error)
+      return 0
+    }
+    
+    const uniqueVisitors = new Set(data?.map(visit => visit.visitor_id) || [])
+    return uniqueVisitors.size
+  },
+
+  async getVisitorByIdToday(visitorId) {
+    const today = new Date().toISOString().split('T')[0]
+    const { data, error } = await supabase
+      .from('visitor_stats')
+      .select('*')
+      .eq('visitor_id', visitorId)
+      .gte('visited_at', `${today}T00:00:00.000Z`)
+      .lt('visited_at', `${today}T23:59:59.999Z`)
+      .single()
+    
+    if (error && error.code !== 'PGRST116') throw error
+    return data
+  },
+
+  async updateVisitorVisit(id, updates) {
+    const { data, error } = await supabase
+      .from('visitor_stats')
+      .update(updates)
+      .eq('id', id)
+      .select()
+    
+    if (error) throw error
+    return data[0]
+  }
+}
+
+// Auth helper functions
 export const authAPI = {
   async signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({
