@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
 import { 
   LogOut, Plus, Edit, Trash2, Save, X,
-  BarChart3, Users, FileText, Briefcase, Mail, Sun, Moon, Upload, Download, File 
+  BarChart3, Users, FileText, Briefcase, Mail, Sun, Moon 
 } from 'lucide-react'
 import { projectsAPI, experienceAPI, authAPI, supabase } from '../utils/supabase'
 import { useTheme } from '../contexts/ThemeContext'
@@ -62,11 +62,6 @@ const AdminDashboard = () => {
   // Data states
   const [projects, setProjects] = useState([])
   const [experiences, setExperiences] = useState([])
-  
-  // Resume states
-  const [resumeFile, setResumeFile] = useState(null)
-  const [resumeUploading, setResumeUploading] = useState(false)
-  const [currentResume, setCurrentResume] = useState(null)
 
   useEffect(() => {
     checkAuthAndLoadData()
@@ -448,120 +443,10 @@ const AdminDashboard = () => {
     }
   }
 
-  // Resume management functions
-  const handleResumeSelect = (e) => {
-    const file = e.target.files[0]
-    if (file && file.type === 'application/pdf') {
-      setResumeFile(file)
-    } else {
-      alert('Please select a PDF file')
-    }
-  }
-
-  const handleResumeUpload = async () => {
-    if (!resumeFile) {
-      alert('Please select a resume file first')
-      return
-    }
-
-    setResumeUploading(true)
-    try {
-      // Convert file to base64 for storage
-      const reader = new FileReader()
-      reader.onload = async () => {
-        const base64Data = reader.result
-        
-        // Store in localStorage (for client-side only approach)
-        localStorage.setItem('resume_pdf', base64Data)
-        localStorage.setItem('resume_filename', resumeFile.name)
-        localStorage.setItem('resume_updated', new Date().toISOString())
-        
-        // Create a blob URL for the public folder simulation
-        const blob = new Blob([resumeFile], { type: 'application/pdf' })
-        const url = URL.createObjectURL(blob)
-        
-        // Update current resume info
-        setCurrentResume({
-          filename: resumeFile.name,
-          size: resumeFile.size,
-          updated: new Date().toISOString(),
-          url: url
-        })
-        
-        // Clear the file input
-        setResumeFile(null)
-        
-        // Force a page refresh to update the resume download link
-        alert('Resume uploaded successfully! The new resume will be available for download.')
-        
-        // Trigger a build by updating a timestamp file
-        await updateResumeTimestamp()
-      }
-      reader.readAsDataURL(resumeFile)
-    } catch (error) {
-      console.error('Failed to upload resume:', error)
-      alert('Failed to upload resume: ' + error.message)
-    } finally {
-      setResumeUploading(false)
-    }
-  }
-
-  const updateResumeTimestamp = async () => {
-    try {
-      // Update a timestamp to trigger deployment
-      const timestamp = new Date().toISOString()
-      localStorage.setItem('resume_deployment_trigger', timestamp)
-      
-      // You could also make an API call here to trigger a rebuild
-      console.log('Resume timestamp updated:', timestamp)
-    } catch (error) {
-      console.error('Failed to update timestamp:', error)
-    }
-  }
-
-  const downloadCurrentResume = () => {
-    const resumeData = localStorage.getItem('resume_pdf')
-    const filename = localStorage.getItem('resume_filename') || 'resume.pdf'
-    
-    if (resumeData) {
-      const link = document.createElement('a')
-      link.href = resumeData
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    } else {
-      // Fallback to public resume
-      const link = document.createElement('a')
-      link.href = '/resume.pdf'
-      link.download = 'resume.pdf'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    }
-  }
-
-  // Load current resume info on component mount
-  useEffect(() => {
-    const resumeData = localStorage.getItem('resume_pdf')
-    const filename = localStorage.getItem('resume_filename')
-    const updated = localStorage.getItem('resume_updated')
-    
-    if (resumeData && filename) {
-      setCurrentResume({
-        filename,
-        updated,
-        size: Math.round(resumeData.length * 0.75), // Approximate size from base64
-        url: resumeData
-      })
-    }
-  }, [])
-
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'projects', label: 'Projects', icon: Briefcase },
-    { id: 'experience', label: 'Experience', icon: Users },
-    { id: 'resume', label: 'Resume', icon: FileText }
+    { id: 'experience', label: 'Experience', icon: Users }
   ]
 
   const stats = [
@@ -890,134 +775,6 @@ const AdminDashboard = () => {
                           ))}
                         </tbody>
                       </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'resume' && (
-                <div>
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      Resume Management
-                    </h2>
-                  </div>
-
-                  <div className="space-y-6">
-                    {/* Current Resume Info */}
-                    <div className="card">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        Current Resume
-                      </h3>
-                      {currentResume ? (
-                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-surface rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <File size={24} className="text-red-500" />
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-gray-100">
-                                {currentResume.filename}
-                              </p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
-                                Updated: {new Date(currentResume.updated).toLocaleDateString()}
-                              </p>
-                              <p className="text-xs text-gray-400 dark:text-gray-500">
-                                Size: {Math.round(currentResume.size / 1024)} KB
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={downloadCurrentResume}
-                            className="btn-secondary flex items-center gap-2"
-                          >
-                            <Download size={16} />
-                            Download
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                          <File size={48} className="mx-auto mb-4 opacity-50" />
-                          <p>No resume uploaded yet</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Upload New Resume */}
-                    <div className="card">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        Upload New Resume
-                      </h3>
-                      <div className="space-y-4">
-                        <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6">
-                          <div className="text-center">
-                            <Upload size={48} className="mx-auto mb-4 text-gray-400" />
-                            <div className="mb-4">
-                              <label className="cursor-pointer">
-                                <input
-                                  type="file"
-                                  accept=".pdf"
-                                  onChange={handleResumeSelect}
-                                  className="hidden"
-                                />
-                                <span className="btn-primary inline-flex items-center gap-2">
-                                  <Upload size={16} />
-                                  Choose PDF File
-                                </span>
-                              </label>
-                            </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              Select a PDF file to upload as your new resume
-                            </p>
-                          </div>
-                        </div>
-
-                        {resumeFile && (
-                          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <File size={20} className="text-blue-500" />
-                                <div>
-                                  <p className="font-medium text-blue-900 dark:text-blue-100">
-                                    {resumeFile.name}
-                                  </p>
-                                  <p className="text-sm text-blue-600 dark:text-blue-300">
-                                    {Math.round(resumeFile.size / 1024)} KB
-                                  </p>
-                                </div>
-                              </div>
-                              <button
-                                onClick={handleResumeUpload}
-                                disabled={resumeUploading}
-                                className="btn-primary flex items-center gap-2 disabled:opacity-50"
-                              >
-                                {resumeUploading ? (
-                                  <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                    Uploading...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Upload size={16} />
-                                    Upload Resume
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Resume Usage Info */}
-                    <div className="card bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
-                      <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100 mb-3">
-                        📋 How Resume Updates Work
-                      </h3>
-                      <div className="space-y-2 text-sm text-yellow-800 dark:text-yellow-200">
-                        <p>• Upload a new PDF file to replace your current resume</p>
-                        <p>• The resume will be immediately available for download on your portfolio</p>
-                        <p>• Visitors can download your resume from the Home and Experience pages</p>
-                        <p>• The resume link is: <code className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">/resume.pdf</code></p>
-                      </div>
                     </div>
                   </div>
                 </div>

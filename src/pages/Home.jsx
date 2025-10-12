@@ -1,41 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight, Download, Github, Linkedin, Mail } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const Home = () => {
-  const [resumeUrl, setResumeUrl] = useState('/resume.pdf')
-
-  useEffect(() => {
-    // Check if there's a custom resume uploaded
-    const customResume = localStorage.getItem('resume_pdf')
-    if (customResume) {
-      setResumeUrl(customResume)
-    }
-  }, [])
-
-  const handleResumeDownload = () => {
-    const customResume = localStorage.getItem('resume_pdf')
-    const filename = localStorage.getItem('resume_filename') || 'resume.pdf'
-    
-    if (customResume) {
-      // Use custom uploaded resume
-      const link = document.createElement('a')
-      link.href = customResume
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    } else {
-      // Use default resume from public folder
-      const link = document.createElement('a')
-      link.href = '/resume.pdf'
-      link.download = 'resume.pdf'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    }
-  }
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -124,13 +92,14 @@ const Home = () => {
                 <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
               </Link>
               
-              <button
-                onClick={handleResumeDownload}
+              <a
+                href="/resume.pdf"
+                download
                 className="btn-secondary flex items-center gap-2"
               >
                 <Download size={20} />
                 Download Resume
-              </button>
+              </a>
             </motion.div>
 
             {/* Social Links */}
