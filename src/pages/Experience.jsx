@@ -8,6 +8,29 @@ const Experience = () => {
   const [experiences, setExperiences] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const handleResumeDownload = () => {
+    const customResume = localStorage.getItem('resume_pdf')
+    const filename = localStorage.getItem('resume_filename') || 'resume.pdf'
+    
+    if (customResume) {
+      // Use custom uploaded resume
+      const link = document.createElement('a')
+      link.href = customResume
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } else {
+      // Use default resume from public folder
+      const link = document.createElement('a')
+      link.href = '/resume.pdf'
+      link.download = 'resume.pdf'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  }
+
   // Mock data for development
   const mockExperiences = [
     {
@@ -442,14 +465,13 @@ const Experience = () => {
                 Download my complete resume for detailed information about my experience, 
                 skills, and accomplishments.
               </p>
-              <a
-                href="/resume.pdf"
-                download
+              <button
+                onClick={handleResumeDownload}
                 className="btn-primary inline-flex items-center gap-2 text-lg px-8 py-4"
               >
                 <Download size={24} />
                 Download Resume
-              </a>
+              </button>
             </motion.div>
           </div>
         </section>
