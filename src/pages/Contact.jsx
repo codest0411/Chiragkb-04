@@ -355,16 +355,52 @@ const Contact = () => {
               transition={{ duration: 0.6 }}
               className="rounded-2xl overflow-hidden shadow-lg"
             >
-              {/* Placeholder for Google Maps */}
-              <div className="w-full h-96 bg-gradient-to-br from-primary-100 to-navy-100 dark:from-emerald-900/20 dark:to-purple-900/20 flex items-center justify-center">
-                <div className="text-center">
-                  <MapPin size={48} className="mx-auto mb-4 text-primary-600 dark:text-emerald-400" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    {/* Interactive map would be embedded here */}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-                    Ugar Khurd, Belagavi, Karnataka
-                  </p>
+              {/* Google Maps Embed */}
+              <div className="w-full h-96 relative">
+                <iframe
+                  src="https://maps.google.com/maps?q=Ugar+Khurd,+Belagavi,+Karnataka,+India&t=&z=13&ie=UTF8&iwloc=&output=embed"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Ugar Khurd, Belagavi, Karnataka Location"
+                  className="rounded-2xl"
+                />
+                
+                {/* Map overlay with location info */}
+                <div className="absolute top-4 right-4 bg-white dark:bg-dark-card shadow-lg rounded-lg p-4 max-w-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-emerald-900/20 flex items-center justify-center">
+                      <MapPin size={20} className="text-primary-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">My Location</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Ugar Khurd, Belagavi</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">Karnataka, India</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick action buttons */}
+                <div className="absolute bottom-4 left-4 flex gap-2">
+                  <a
+                    href="https://maps.google.com/?q=Ugar+Khurd,+Belagavi,+Karnataka,+India"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 bg-white dark:bg-dark-card shadow-lg rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Open in Maps
+                  </a>
+                  <a
+                    href="https://maps.google.com/maps/dir//Ugar+Khurd,+Belagavi,+Karnataka,+India"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 bg-primary-600 dark:bg-emerald-600 text-white shadow-lg rounded-lg text-sm font-medium hover:bg-primary-700 dark:hover:bg-emerald-700 transition-colors"
+                  >
+                    Get Directions
+                  </a>
                 </div>
               </div>
             </motion.div>

@@ -10,6 +10,7 @@ const Projects = () => {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedProject, setSelectedProject] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [availableCategories, setAvailableCategories] = useState(['All'])
 
   // Custom Image Component for handling uploaded images
   const ProjectImage = ({ src, alt, className }) => {
@@ -88,7 +89,72 @@ const Projects = () => {
     }
   ]
 
-  const categories = ['All', 'Full Stack', 'Frontend', 'Backend']
+  // Function to process category data from database
+  const processCategory = (category) => {
+    // If it's already an array, return as is
+    if (Array.isArray(category)) {
+      return category
+    }
+    
+    // If it's a string that looks like JSON array, parse it
+    if (typeof category === 'string') {
+      // Check if it's a JSON array string like '["Full Stack","Backend"]'
+      if (category.startsWith('[') && category.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(category)
+          return Array.isArray(parsed) ? parsed : [category]
+        } catch (e) {
+          // If parsing fails, treat as single category
+          return [category]
+        }
+      }
+      // If it's a regular string, return as single-item array
+      return [category]
+    }
+    
+    // Default fallback
+    return []
+  }
+
+  // Function to generate categories from projects
+  const generateCategories = (projectsData) => {
+    const categorySet = new Set(['All'])
+    
+    projectsData.forEach(project => {
+      if (Array.isArray(project.category)) {
+        // Add each individual category from the array
+        project.category.forEach(cat => {
+          if (cat && typeof cat === 'string') {
+            categorySet.add(cat)
+          }
+        })
+      } else if (project.category && typeof project.category === 'string') {
+        categorySet.add(project.category)
+      }
+    })
+    
+    const categories = Array.from(categorySet)
+    // Sort with 'All' first, then alphabetically
+    return categories.sort((a, b) => {
+      if (a === 'All') return -1
+      if (b === 'All') return 1
+      return a.localeCompare(b)
+    })
+  }
+
+  // Function to get project count for a category
+  const getProjectCountForCategory = (category) => {
+    if (category === 'All') return projects.length
+    
+    return projects.filter(project => {
+      if (Array.isArray(project.category)) {
+        return project.category.includes(category)
+      } else if (typeof project.category === 'string') {
+        return project.category === category
+      }
+      return false
+    }).length
+  }
 
   useEffect(() => {
     fetchProjects()
@@ -105,7 +171,15 @@ const Projects = () => {
     if (selectedCategory === 'All') {
       setFilteredProjects(projects)
     } else {
-      setFilteredProjects(projects.filter(project => project.category === selectedCategory))
+      setFilteredProjects(projects.filter(project => {
+        // Handle both array and string categories for backward compatibility
+        if (Array.isArray(project.category)) {
+          return project.category.includes(selectedCategory)
+        } else if (typeof project.category === 'string') {
+          return project.category === selectedCategory
+        }
+        return false
+      }))
     }
   }, [selectedCategory, projects])
 
@@ -115,22 +189,41 @@ const Projects = () => {
       // Try to fetch from Supabase first
       const data = await projectsAPI.getAll()
       if (data && data.length > 0) {
+        // Process projects to handle category data properly
+        const processedProjects = data.map(project => ({
+          ...project,
+          category: processCategory(project.category)
+        }))
+        
         // Only show featured projects
-        const featuredProjects = data.filter(project => project.featured === true)
+        const featuredProjects = processedProjects.filter(project => project.featured === true)
         setProjects(featuredProjects)
         setFilteredProjects(featuredProjects)
+        const categories = generateCategories(featuredProjects)
+        console.log('Generated categories:', categories)
+        setAvailableCategories(categories)
       } else {
         // Fallback to mock data if no projects in database (only featured ones)
-        const featuredMockProjects = mockProjects.filter(project => project.featured === true)
+        const processedMockProjects = mockProjects.map(project => ({
+          ...project,
+          category: processCategory(project.category)
+        }))
+        const featuredMockProjects = processedMockProjects.filter(project => project.featured === true)
         setProjects(featuredMockProjects)
         setFilteredProjects(featuredMockProjects)
+        setAvailableCategories(generateCategories(featuredMockProjects))
       }
     } catch (error) {
       console.error('Error fetching projects:', error)
       // Fallback to mock data on error (only featured ones)
-      const featuredMockProjects = mockProjects.filter(project => project.featured === true)
+      const processedMockProjects = mockProjects.map(project => ({
+        ...project,
+        category: processCategory(project.category)
+      }))
+      const featuredMockProjects = processedMockProjects.filter(project => project.featured === true)
       setProjects(featuredMockProjects)
       setFilteredProjects(featuredMockProjects)
+      setAvailableCategories(generateCategories(featuredMockProjects))
     } finally {
       setLoading(false)
     }
@@ -192,9 +285,18 @@ const Projects = () => {
               <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                 {project.title}
               </h2>
-              <span className="px-3 py-1 bg-primary-100 dark:bg-emerald-900/20 text-primary-600 dark:text-emerald-400 rounded-full text-sm font-medium">
-                {project.category}
-              </span>
+              <div className="flex flex-wrap gap-2">
+                {Array.isArray(project.category) ? 
+                  project.category.map((cat) => (
+                    <span key={cat} className="px-3 py-1 bg-primary-100 dark:bg-emerald-900/20 text-primary-600 dark:text-emerald-400 rounded-full text-sm font-medium">
+                      {cat}
+                    </span>
+                  )) : 
+                  <span className="px-3 py-1 bg-primary-100 dark:bg-emerald-900/20 text-primary-600 dark:text-emerald-400 rounded-full text-sm font-medium">
+                    {project.category}
+                  </span>
+                }
+              </div>
             </div>
             
             <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
@@ -283,7 +385,7 @@ const Projects = () => {
               transition={{ duration: 0.5 }}
               className="flex flex-wrap justify-center gap-2 sm:gap-4"
             >
-              {categories.map((category) => (
+              {availableCategories.map((category) => (
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
@@ -293,7 +395,7 @@ const Projects = () => {
                       : 'bg-gray-100/50 dark:bg-gray-800/30 text-gray-600 dark:text-gray-400 hover:bg-gray-200/70 dark:hover:bg-gray-700/50 border border-gray-200/50 dark:border-gray-600/30'
                   }`}
                 >
-                  {category}
+                  {category} ({getProjectCountForCategory(category)})
                 </button>
               ))}
             </motion.div>
@@ -350,13 +452,27 @@ const Projects = () => {
                       </div>
                       
                       <div className="p-6">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-emerald-400 transition-colors">
+                        <div className="flex items-start justify-between mb-3">
+                          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-emerald-400 transition-colors flex-1 pr-2">
                             {project.title}
                           </h3>
-                          <span className="px-2 py-1 bg-gray-100 dark:bg-dark-surface text-xs text-gray-600 dark:text-gray-400 rounded">
-                            {project.category}
-                          </span>
+                          <div className="flex flex-wrap gap-1 justify-end">
+                            {Array.isArray(project.category) ? 
+                              project.category.slice(0, 2).map((cat) => (
+                                <span key={cat} className="px-2 py-1 bg-gray-100 dark:bg-dark-surface text-xs text-gray-600 dark:text-gray-400 rounded">
+                                  {cat}
+                                </span>
+                              )) : 
+                              <span className="px-2 py-1 bg-gray-100 dark:bg-dark-surface text-xs text-gray-600 dark:text-gray-400 rounded">
+                                {project.category}
+                              </span>
+                            }
+                            {Array.isArray(project.category) && project.category.length > 2 && (
+                              <span className="px-2 py-1 bg-gray-100 dark:bg-dark-surface text-xs text-gray-600 dark:text-gray-400 rounded">
+                                +{project.category.length - 2}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         
                         <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">

@@ -34,7 +34,7 @@ const Footer = () => {
               Quick Links
             </h4>
             <div className="grid grid-cols-2 gap-2">
-              {['About', 'Projects', 'Experience', 'Blog', 'Contact'].map((link) => (
+              {['About', 'Projects', 'Experience', 'Contact'].map((link) => (
                 <a
                   key={link}
                   href={`/${link.toLowerCase()}`}

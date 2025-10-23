@@ -1,9 +1,64 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight, Download, Github, Linkedin, Mail } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { statisticsAPI, resumeAPI } from '../utils/supabase'
 
 const Home = () => {
+  const [statistics, setStatistics] = useState([])
+  const [loadingStats, setLoadingStats] = useState(true)
+  const [resumeUrl, setResumeUrl] = useState('/resume.pdf')
+  const [resumeFilename, setResumeFilename] = useState('resume.pdf')
+
+  useEffect(() => {
+    loadStatistics()
+    loadResumeUrl()
+
+    // Listen for real-time resume updates from admin
+    const handleResumeUpdate = (event) => {
+      const updatedResume = event.detail
+      setResumeUrl(updatedResume.resume_url)
+      setResumeFilename(updatedResume.filename)
+    }
+
+    window.addEventListener('resumeUpdated', handleResumeUpdate)
+    
+    return () => {
+      window.removeEventListener('resumeUpdated', handleResumeUpdate)
+    }
+  }, [])
+
+  const loadStatistics = async () => {
+    try {
+      const stats = await statisticsAPI.getAll()
+      setStatistics(stats)
+    } catch (error) {
+      console.error('Failed to load statistics:', error)
+      // Show error message to user
+      console.warn('Please ensure your Supabase database is properly configured with a statistics table')
+      // Fallback to default statistics
+      setStatistics([
+        { id: 1, number: '5+', label: 'Projects Completed', order: 1 },
+        { id: 2, number: '1+', label: 'Years Experience', order: 2 },
+        { id: 3, number: '8+', label: 'Students Helped', order: 3 },
+        { id: 4, number: '10+', label: 'Technologies', order: 4 }
+      ])
+    } finally {
+      setLoadingStats(false)
+    }
+  }
+
+  const loadResumeUrl = async () => {
+    try {
+      const resumeData = await resumeAPI.getResumeUrl()
+      setResumeUrl(resumeData.resume_url)
+      setResumeFilename(resumeData.filename)
+    } catch (error) {
+      console.error('Failed to load resume URL:', error)
+      // Keep default values
+    }
+  }
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -93,9 +148,16 @@ const Home = () => {
               </Link>
               
               <a
-                href="/resume.pdf"
-                download
+                href={resumeUrl}
+                download={resumeFilename}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="btn-secondary flex items-center gap-2"
+                onClick={(e) => {
+                  // Force download instead of opening in browser
+                  e.preventDefault()
+                  resumeAPI.forceDownload(resumeUrl, resumeFilename)
+                }}
               >
                 <Download size={20} />
                 Download Resume
@@ -164,28 +226,40 @@ const Home = () => {
             transition={{ duration: 0.6 }}
             className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center"
           >
-            {[
-              { number: '5+', label: 'Projects Completed' },
-              { number: '1+', label: 'Years Experience' },
-              { number: '8+', label: 'Students Helped' },
-              { number: '10+', label: 'Technologies' }
-            ].map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="space-y-2"
-              >
-                <h3 className="text-3xl md:text-4xl font-bold text-gradient dark:text-gradient-dark">
-                  {stat.number}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 font-medium">
-                  {stat.label}
-                </p>
-              </motion.div>
-            ))}
+            {loadingStats ? (
+              // Loading skeleton
+              Array.from({ length: 4 }).map((_, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className="space-y-2"
+                >
+                  <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                </motion.div>
+              ))
+            ) : (
+              statistics.map((stat, index) => (
+                <motion.div
+                  key={stat.id || stat.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className="space-y-2"
+                >
+                  <h3 className="text-3xl md:text-4xl font-bold text-gradient dark:text-gradient-dark">
+                    {stat.number}
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 font-medium">
+                    {stat.label}
+                  </p>
+                </motion.div>
+              ))
+            )}
           </motion.div>
         </div>
       </section>

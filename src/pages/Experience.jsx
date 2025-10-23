@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
 import { Briefcase, GraduationCap, Award, Download, Calendar, MapPin } from 'lucide-react'
-import { experienceAPI } from '../utils/supabase'
+import { experienceAPI, resumeAPI } from '../utils/supabase'
 
 const Experience = () => {
   const [experiences, setExperiences] = useState([])
   const [loading, setLoading] = useState(true)
+  const [resumeUrl, setResumeUrl] = useState('/resume.pdf')
+  const [resumeFilename, setResumeFilename] = useState('resume.pdf')
 
   // Mock data for development
   const mockExperiences = [
@@ -165,14 +167,38 @@ const Experience = () => {
       }
     }
 
+    const loadResumeUrl = async () => {
+      try {
+        const resumeData = await resumeAPI.getResumeUrl()
+        setResumeUrl(resumeData.resume_url)
+        setResumeFilename(resumeData.filename)
+      } catch (error) {
+        console.error('Failed to load resume URL:', error)
+        // Keep default values
+      }
+    }
+
     fetchExperience()
+    loadResumeUrl()
+    
+    // Listen for real-time resume updates from admin
+    const handleResumeUpdate = (event) => {
+      const updatedResume = event.detail
+      setResumeUrl(updatedResume.resume_url)
+      setResumeFilename(updatedResume.filename)
+    }
+
+    window.addEventListener('resumeUpdated', handleResumeUpdate)
     
     // Set up periodic refresh to catch real-time changes from admin
     const refreshInterval = setInterval(() => {
       fetchExperience()
     }, 5000) // Refresh every 5 seconds for real-time updates
     
-    return () => clearInterval(refreshInterval)
+    return () => {
+      clearInterval(refreshInterval)
+      window.removeEventListener('resumeUpdated', handleResumeUpdate)
+    }
   }, [])
 
   const formatDate = (dateString) => {
@@ -443,9 +469,16 @@ const Experience = () => {
                 skills, and accomplishments.
               </p>
               <a
-                href="/resume.pdf"
-                download
+                href={resumeUrl}
+                download={resumeFilename}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="btn-primary inline-flex items-center gap-2 text-lg px-8 py-4"
+                onClick={(e) => {
+                  // Force download instead of opening in browser
+                  e.preventDefault()
+                  resumeAPI.forceDownload(resumeUrl, resumeFilename)
+                }}
               >
                 <Download size={24} />
                 Download Resume

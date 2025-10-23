@@ -355,6 +355,325 @@ export const visitorAPI = {
 }
 
 // Auth helper functions
+// Statistics API for Home page stats
+export const statisticsAPI = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('statistics')
+      .select('*')
+      .order('order', { ascending: true })
+    
+    if (error) {
+      console.error('Error fetching statistics:', error)
+      throw error
+    }
+    
+    return data || []
+  },
+
+  async update(id, updates) {
+    const { data, error } = await supabase
+      .from('statistics')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+    
+    if (error) {
+      console.error('Error updating statistic:', error)
+      throw error
+    }
+    
+    return data[0]
+  },
+
+  async create(statistic) {
+    const { data, error } = await supabase
+      .from('statistics')
+      .insert([{
+        ...statistic,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select()
+    
+    if (error) {
+      console.error('Error creating statistic:', error)
+      throw error
+    }
+    
+    return data[0]
+  },
+
+  async delete(id) {
+    const { error } = await supabase
+      .from('statistics')
+      .delete()
+      .eq('id', id)
+    
+    if (error) {
+      console.error('Error deleting statistic:', error)
+      throw error
+    }
+  }
+}
+
+// Resume API for managing resume file
+export const resumeAPI = {
+  async getResumeUrl() {
+    try {
+      const { data, error } = await supabase
+        .from('resume_settings')
+        .select('resume_url, filename, description')
+        .single()
+      
+      if (error) {
+        console.warn('Resume settings table not found, using default resume')
+        return { resume_url: '/resume.pdf', filename: 'resume.pdf', description: null }
+      }
+      
+      if (!data) {
+        return { resume_url: '/resume.pdf', filename: 'resume.pdf', description: null }
+      }
+      
+      return data
+    } catch (error) {
+      console.warn('Error fetching resume URL, using default:', error)
+      return { resume_url: '/resume.pdf', filename: 'resume.pdf', description: null }
+    }
+  },
+
+  async uploadResume(file) {
+    try {
+      // First, delete any existing custom resume
+      await this.deleteOldResume()
+
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop()
+      const fileName = `resume_${Date.now()}.${fileExt}`
+      const filePath = `resumes/${fileName}`
+
+      // Upload file to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type
+        })
+
+      if (uploadError) {
+        // Fallback to base64 storage for development
+        console.warn('Supabase storage upload failed, using base64 fallback')
+        const base64Data = await this.fileToBase64(file)
+        localStorage.setItem('resume_file', base64Data)
+        localStorage.setItem('resume_filename', file.name)
+        
+        const resumeUrl = `data:application/pdf;base64,${base64Data.split(',')[1]}`
+        
+        // Try to save to database
+        try {
+          await this.saveResumeSettings(resumeUrl, file.name)
+        } catch (dbError) {
+          console.warn('Database save failed, using localStorage only')
+        }
+        
+        return { resume_url: resumeUrl, filename: file.name }
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath)
+
+      const resumeUrl = urlData.publicUrl
+
+      // Save resume settings to database
+      try {
+        await this.saveResumeSettings(resumeUrl, file.name)
+      } catch (dbError) {
+        console.warn('Database save failed, but file uploaded successfully:', dbError)
+        // Continue anyway - file is uploaded to storage
+      }
+
+      return { resume_url: resumeUrl, filename: file.name }
+    } catch (error) {
+      console.error('Error uploading resume:', error)
+      throw error
+    }
+  },
+
+  async deleteOldResume() {
+    try {
+      // Get current resume info
+      const currentResume = await this.getResumeUrl()
+      
+      // Only delete if it's a custom resume (not the default)
+      if (currentResume.resume_url !== '/resume.pdf' && currentResume.resume_url.startsWith('http')) {
+        // Extract file path from URL for Supabase storage
+        const urlParts = currentResume.resume_url.split('/')
+        const fileName = urlParts[urlParts.length - 1]
+        const filePath = `resumes/${fileName}`
+
+        // Delete from storage (don't throw error if it fails)
+        try {
+          await supabase.storage
+            .from('documents')
+            .remove([filePath])
+        } catch (storageError) {
+          console.warn('Failed to delete old resume from storage:', storageError)
+        }
+      }
+
+      // Clear localStorage fallback
+      localStorage.removeItem('resume_file')
+      localStorage.removeItem('resume_filename')
+    } catch (error) {
+      console.warn('Failed to delete old resume:', error)
+      // Don't throw error, just continue with upload
+    }
+  },
+
+  async saveResumeSettings(resumeUrl, filename, description = null) {
+    const updateData = {
+      id: 1,
+      resume_url: resumeUrl,
+      filename: filename,
+      updated_at: new Date().toISOString()
+    }
+    
+    if (description !== null) {
+      updateData.description = description
+    }
+
+    const { data, error } = await supabase
+      .from('resume_settings')
+      .upsert(updateData)
+      .select()
+
+    if (error) {
+      console.warn('Resume settings table not found. Please create the table using the SQL in SUPABASE_SETUP.md')
+      throw new Error('Resume settings table not found. Please set up your database.')
+    }
+    return data[0]
+  },
+
+  async updateResumeMetadata(metadata) {
+    const { data, error } = await supabase
+      .from('resume_settings')
+      .update({
+        filename: metadata.filename,
+        description: metadata.description,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', 1)
+      .select()
+
+    if (error) throw error
+    return data[0]
+  },
+
+  async deleteResume() {
+    try {
+      // Get current resume info
+      const currentResume = await this.getResumeUrl()
+      
+      if (currentResume.resume_url.startsWith('http')) {
+        // Extract file path from URL for Supabase storage
+        const urlParts = currentResume.resume_url.split('/')
+        const fileName = urlParts[urlParts.length - 1]
+        const filePath = `resumes/${fileName}`
+
+        // Delete from storage
+        await supabase.storage
+          .from('documents')
+          .remove([filePath])
+      }
+
+      // Reset to default in database
+      await this.saveResumeSettings('/resume.pdf', 'resume.pdf')
+      
+      // Clear localStorage fallback
+      localStorage.removeItem('resume_file')
+      localStorage.removeItem('resume_filename')
+
+      return { resume_url: '/resume.pdf', filename: 'resume.pdf' }
+    } catch (error) {
+      console.error('Error deleting resume:', error)
+      throw error
+    }
+  },
+
+  fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = error => reject(error)
+    })
+  },
+
+  // Utility function to force download
+  forceDownload(url, filename) {
+    try {
+      // Create a temporary link element
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      
+      // For cross-origin URLs, try to fetch and create blob URL
+      if (url.startsWith('http') && !url.includes(window.location.hostname)) {
+        this.downloadCrossOrigin(url, filename)
+        return
+      }
+      
+      // Add to DOM temporarily
+      document.body.appendChild(link)
+      
+      // Trigger download
+      link.click()
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link)
+      }, 100)
+    } catch (error) {
+      console.warn('Force download failed, falling back to window.open:', error)
+      // Fallback: open in new tab
+      window.open(url, '_blank')
+    }
+  },
+
+  // Handle cross-origin downloads
+  async downloadCrossOrigin(url, filename) {
+    try {
+      const response = await fetch(url)
+      const blob = await response.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(blobUrl)
+      }, 100)
+    } catch (error) {
+      console.warn('Cross-origin download failed:', error)
+      // Final fallback
+      window.open(url, '_blank')
+    }
+  }
+}
+
 export const authAPI = {
   async signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({
