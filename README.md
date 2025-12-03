@@ -2,8 +2,6 @@
 
 A cutting-edge, fully responsive portfolio website built with **React 19**, **TailwindCSS**, **Framer Motion**, and **Supabase**. Features a complete admin dashboard, real-time content management, and beautiful animations.
 
-![Portfolio Preview](https://chiragkb-04.vercel.app/)
-
 ## ✨ Key Features
 
 ### 🎨 **Modern UI/UX**
